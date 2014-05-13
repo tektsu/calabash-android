@@ -26,7 +26,18 @@ public class Wifi implements Action {
 
 		String message = "";
 
-		if (command.equals("enable")) {
+		if (command.equals("status")) {
+			if (wifiManager.isWifiEnabled()) {
+				Log.d("WIFI", "Status: Enabled");
+				message = "Wifi is enabled";
+			}
+			else {
+				Log.d("WIFI", "Status: Disabled");
+				message = "Wifi is disabled";
+			}
+		}
+
+		else if (command.equals("enable")) {
 			if (wifiManager.isWifiEnabled()) {
 				Log.d("WIFI", "Wifi is already enabled");
 				message = "Wifi is already enabled";
@@ -38,7 +49,7 @@ public class Wifi implements Action {
 			}
 		}
 
-		if (command.equals("disable")) {
+		else if (command.equals("disable")) {
 			if (!wifiManager.isWifiEnabled()) {
 				Log.d("WIFI", "Already disabled");
 				message = "Wifi is already disabled";
@@ -50,6 +61,10 @@ public class Wifi implements Action {
 			}
 		}
 
+		else {
+			return new Result(false, "Invalid command [" + command + "]");
+		}
+
 		Result result = Result.successResult();
 		result.setMessage(message);
 		return result;
@@ -57,7 +72,7 @@ public class Wifi implements Action {
 
 	@Override
 	public String key() {
-		return "status_wifi";
+		return "wifi";
 	}
 }
 
