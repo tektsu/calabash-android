@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import sh.calaba.instrumentationbackend.InstrumentationBackend;
+import sh.calaba.instrumentationbackend.Result;
 
 public class InvocationOperation implements Operation {
 
@@ -12,14 +13,16 @@ public class InvocationOperation implements Operation {
 	@SuppressWarnings("rawtypes")
 	private final List arguments;
 	private final Class<?>[] classes;
+    private final Class<?>[] boxedClasses;
 	private final Class<?>[] classesWithCharseq;
 
 	@SuppressWarnings("rawtypes")
 	public InvocationOperation(String methodName, List arguments) {
 		this.methodName = methodName;
 		this.arguments = arguments;
-		this.classes = extractArgumentTypes(false);
-		this.classesWithCharseq = extractArgumentTypes(true);
+		this.classes = extractArgumentTypes(false, false);
+        this.boxedClasses = extractArgumentTypes(false, true);
+		this.classesWithCharseq = extractArgumentTypes(true, false);
 	}	
 
 	@SuppressWarnings("rawtypes")
@@ -71,7 +74,27 @@ public class InvocationOperation implements Operation {
 							return;
 						}
 					} catch (NoSuchMethodException ee) {
-						System.out.println("Method not found with correct argument types. Trying to type convert.");
+                        try {
+                            Method method = o.getClass().getMethod(InvocationOperation.this.methodName, InvocationOperation.this.boxedClasses);
+                            method.setAccessible(true);
+                            try {
+                                Object result;
+                                if( method.getReturnType().equals(Void.TYPE)){
+                                    invokeMethod(o, method);
+                                    result = "<VOID>";
+                                }
+                                else {
+                                    result = invokeMethod(o, method);
+                                }
+                                ref.set(result);
+                                return;
+                            } catch (Exception eee) {
+                                refEx.set(eee);
+                                return;
+                            }
+                        } catch (NoSuchMethodException eee) {
+                            System.out.println("Method not found with correct argument types. Trying to type convert.");
+                        }
 					}
 				}
 				//Warning: Slow path
@@ -100,7 +123,27 @@ public class InvocationOperation implements Operation {
 						}							
 					}
 				}
-		
+
+                StringBuilder stringBuilder = new StringBuilder("No such method found: ");
+                stringBuilder.append(InvocationOperation.this.methodName);
+                stringBuilder.append("(");
+                int length = InvocationOperation.this.arguments.size();
+
+                for (int i = 0; i < length; i++) {
+                    Object argument = InvocationOperation.this.arguments.get(i);
+
+                    if (i != 0) {
+                        stringBuilder.append(", ");
+                    }
+
+                    stringBuilder.append("[").append(argument.getClass().getSimpleName()).append("]");
+                }
+
+                stringBuilder.append(")");
+
+
+                ref.set(UIQueryResultVoid.instance
+                        .asMap(InvocationOperation.this.methodName, o, stringBuilder.toString()));
 			}
 			 
 		 });
@@ -112,7 +155,7 @@ public class InvocationOperation implements Operation {
 	}
 	
 	@SuppressWarnings("rawtypes")
-	private Class[] extractArgumentTypes(boolean convertStringCharSeq) {
+	private Class[] extractArgumentTypes(boolean convertStringCharSeq, boolean userWrapperClass) {
 		Class[] types = new Class[arguments.size()];
 		for (int i=0;i<arguments.size(); i++) {
 			Object o = arguments.get(i);
@@ -120,10 +163,14 @@ public class InvocationOperation implements Operation {
 				Class<?> c = o.getClass();
 				if (convertStringCharSeq && c.equals(String.class)) {
 					c = CharSequence.class;//Android API specific optimization
-				} 								
-				types[i] = mapToPrimitiveClass(c); 	
-			}
-			else {
+				}
+
+                if (userWrapperClass) {
+                    types[i] = c;
+                } else {
+                    types[i] = mapToPrimitiveClass(c);
+                }
+			} else {
 				types[i] = null;
 			}			
 		}

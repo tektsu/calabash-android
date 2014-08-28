@@ -1,5 +1,5 @@
 module Calabash
   module Android
-    VERSION = "0.4.22.tm.2"
+    VERSION = "0.5.2.tm.1"
   end
 end
