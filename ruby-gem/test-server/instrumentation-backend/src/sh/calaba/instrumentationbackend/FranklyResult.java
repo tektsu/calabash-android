@@ -59,19 +59,18 @@ public class FranklyResult {
 	{
 		Map<String,Object> map = new HashMap<String, Object>();
         map.put("outcome", success ? "SUCCESS" : "ERROR");
-		
-		if (success)
-		{
+        if(result != null ) {
             map.put("results", result.asList());
-		}
-		else 
-		{
+        }
+
+        if (!success) {
             map.put("reason", reason);
-			if (detail != null)
-			{
+
+			if (detail != null) {
                 map.put("detail", detail);
 			}						
 		}
+
 		return map;
 	}
 
